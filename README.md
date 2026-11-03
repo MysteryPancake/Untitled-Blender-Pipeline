@@ -1,6 +1,6 @@
-# Shitgrid
+# Untitled Blender pipeline
 
-[![Shitgrid demo](https://img.youtube.com/vi/tNqqY4XsTL0/maxresdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
+[![Pipeline demo](https://img.youtube.com/vi/tNqqY4XsTL0/maxresdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
 
 | [Demo Video](https://youtu.be/tNqqY4XsTL0) |
 | --- |
