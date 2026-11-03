@@ -1,4 +1,4 @@
-# Untitled Blender pipeline
+# Untitled Blender Pipeline
 
 [![Pipeline demo](https://img.youtube.com/vi/tNqqY4XsTL0/maxresdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
 
