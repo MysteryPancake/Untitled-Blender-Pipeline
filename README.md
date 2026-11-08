@@ -101,10 +101,10 @@ It doesn't use a database for now, just basic file storage in `assets.json` and 
 
 | Endpoint | Method | Description |
 | --- | --- | --- |
-| `/assets/get` | `GET` | List assets |
-| `/assets/add` | `POST` | Add an asset. Creates `wip/<asset>/` and updates `assets.json`. |
-| `/tasks/get` | `GET` | List tasks |
-| `/tasks/add` | `POST` | Add a task |
+| `/assets/get` | `GET` | Lists assets |
+| `/assets/add` | `POST` | Adds an asset. This creates a `wip/<asset>/` folder and updates `assets.json`. |
+| `/tasks/get` | `GET` | Lists tasks |
+| `/tasks/add` | `POST` | Adds a task |
 | `/builds/get` | `GET` | Returns the status, versions in `build/<asset>/`, and the latest version of each layer in `wip/<asset>/<layer>/` |
 
 By default the server only listens on `127.0.0.1` and only accepts localhost origins (see `SG_HOST` and `SG_CORS_ORIGIN` below).
