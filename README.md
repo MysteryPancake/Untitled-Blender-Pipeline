@@ -1,15 +1,17 @@
 # Untitled Blender Pipeline
 
-[![Pipeline demo](https://img.youtube.com/vi/tNqqY4XsTL0/hqdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
+This pipeline was an experiment to see how much I could get done in 2 weeks.
+
+I wanted it to be fully original, so I tried to avoid ideas from existing pipelines.
+
+I designed a versioning system around Blender's data blocks system. Each data block was associated with a version and layer.
+
+Later I realised I was reinventing the wheel after looking at Kitsu's codebase, which uses the same idea of transferring data between objects.
+
+<img src="./images/thumb.jpg" width="500">
 
 | [Demo Video](https://youtu.be/tNqqY4XsTL0) |
 | --- |
-
-This pipeline was an experiment to see how much of a pipeline I could get done in 2 weeks.
-
-I wanted this pipeline to be fully original, so I tried to avoid ideas from existing pipelines.
-
-Eventually I realised I was reinventing the wheel after looking at Kitsu's codebase, which uses the same idea of transferring data between objects.
 
 ## Features
 
