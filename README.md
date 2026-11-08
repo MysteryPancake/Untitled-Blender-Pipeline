@@ -113,11 +113,130 @@ By default the server only listens on `127.0.0.1` and only accepts localhost ori
 
 ### Website Frontend
 
-The frontend is written in JavaScript and JSX using React.
+The frontend is written in JavaScript and JSX using React. It uses [React Router](https://reactrouter.com/) for navigation and [React-Bootstrap](https://react-bootstrap.github.io/) for styling.
+
+```
+website/client/src/
+  index.js     // Router and routes
+  api.js       // Helper functions for interacting with the backend
+  components/  // Reusable react components
+  pages/       // One file per route
+```
+
+#### Pages
+
+| Route | Page | Description | Backend endpoint |
+| --- | --- | --- | --- |
+| `/` | Dashboard | Countdown timers to instill fear and panic, like regular Shotgrid does. | None |
+| `/assets` | Assets | Table of assets with type, description and status. Assets published from Blender but not yet added on the website are marked with (Blender only). | `/assets/get` |
+| `/tasks` | Tasks | Table of tasks with their description and assets. | `/tasks/get` |
+| `/builds` | Builds | Each asset's status, latest build and the latest published version of each layer. | `/builds/get` |
+| `/debug` | Debug | Shows the backend URL the client is using for debugging. | None |
+| `*` | Not Found | 404 page. | None |
+
+On the Builds page, the status is one of the following:
+
+- **Built** is green
+- **Needs rebuild** is yellow
+- **In progress** is blue
+
+See [Building](#building) for more info.
+
+#### Components
+
+- **TopBar** is the navigation bar shown on every page.
+- **AddAsset** is a form that posts to `/assets/add`.
+- **AddTask** is a form that posts to `/tasks/add`.
+- **Timer** is a live countdown (or count up) to a date.
+
+#### Backend Interaction
+
+`api.js` builds the backend URL from `REACT_APP_SG_SERVER` and `REACT_APP_SG_PORT` (see [environment variables](#environment-variables)).
+
+#### Scripts
+
+| Command | Description |
+| --- | --- |
+| `npm start` | Runs the dev server |
+| `npm run build` | Creates a production build in `build/` |
+| `npm test` | Runs tests |
 
 ### Blender Addon
 
-The Blender addon is written in Python.
+The Blender addon is written in Python using Blender's `bpy` API. The `blender` folder is the addon itself, which is zipped during [installation](#blender-addon-3).
+
+```
+blender/
+  __init__.py      // Panels, operators and preferences
+  layers.py        // Layer definitions
+  build.py         // AssetBuilder, which merges layers into a build
+  transfer_map.py  // Matches data blocks between the source and target
+  utils.py         // Database paths, versions and asset names
+  utils_kitsu.py   // Transfer helpers adapted from Kitsu
+  build_cli.py     // Headless build script
+  build.bat        // Windows launcher for build_cli.py
+```
+
+#### Panels
+
+All panels are in the 3D Viewport sidebar (`N`) under the **Shitgrid** tab.
+
+| Panel | Description |
+| --- | --- |
+| **Publish** | Choose an asset name and layer, then publish. The asset name box suggests assets found in `wip` and `build`. |
+| **Update** | Checks which tagged data blocks are outdated, then rebuilds the ticked ones. Has an **Auto Update** option and an **Update Transform** checkbox. |
+| **Fetch** | Appends the latest build of an asset, or builds it live if no build exists yet. |
+| **Inspect** | Lists the asset, layer and version of the selected objects and outliner items. **Unlink Asset** removes their tags. |
+| **(DEV) Build** | Builds a specific layer at a specific version. Only visible when **Developer Mode** is on. |
+
+#### Preferences
+
+| Preference | Description |
+| --- | --- |
+| **Auto Update** | Checks for updates and applies them whenever a file is loaded. |
+| **Make asset folder if missing** | Lets Publish create the `wip/<asset>/` folder when it doesn't exist yet. |
+| **Developer Mode** | Shows the **(DEV) Build** panel. |
+
+#### Layers
+
+Each build layer is a class in `layers.py`. They include a folder name, label, the data types that belong to it, and a `process` function.
+
+| Layer | Folder | Status |
+| --- | --- | --- |
+| Modelling | `models` | Done |
+| Surfacing / UVs | `materials` | Done |
+| Lighting | `lights` | Done |
+| Grooming | `grooms` | TODO |
+| Rigging / Shape Keys / Vertex Groups | `rigs` | TODO |
+| Assembly / Layout | `assembly` | TODO |
+| Animation | `anims` | TODO |
+
+#### How a layer gets built
+
+1. `AssetBuilder` finds the version in `wip/<asset>/<layer>/`, or the latest one when no version is given.
+2. `TransferMap` loads that file and compares it with the current file. Data blocks are matched by their `sg_id`, which sorts them into new, deleted and matching.
+3. The layer adds new data, removes deleted data and transfers edits onto matching data.
+
+Data blocks are tagged with these custom properties when they're published:
+
+| Property | Description |
+| --- | --- |
+| `sg_asset` | Name of the asset the data block belongs to |
+| `sg_layer` | Layer it was published in |
+| `sg_version` | Version it was published as |
+| `sg_id` | Unique ID used for matching. If IDs are duplicated, blocks are matched by order. |
+
+#### Builds and the Asset Browser
+
+A build is saved to `build/<asset>/<asset>_v001.blend` with its root collection marked as an asset. It's also added to the catalog file `build/blender_assets.cats.txt`, so builds are listed in Blender's Asset Browser. The addon registers the `build` folder as an asset library called **Asset Builds**.
+
+Builds can be made from inside Blender with the (DEV) Build panel, or headlessly. `build.bat` asks for an asset name and runs `build_cli.py` through Blender in background mode, which builds every layer of the asset using the latest versions. It needs `SG_DATABASE` to be set, and uses `BLENDER_EXE` to find Blender.
+
+You can also run it directly:
+
+```
+blender -b --factory-startup -P blender/build_cli.py -- --asset NAME --database PATH
+```
 
 ## Shared Database
 
