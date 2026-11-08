@@ -2,7 +2,9 @@
 
 # Untitled Blender Pipeline
 
-This pipeline was an experiment to see how much I could get done in 2 weeks.
+I made this pipeline during my holiday break in 2023. It was an experiment to see how much I could get done in 2 weeks.
+
+Since then I've updated it for Blender 5.3, including some new features and bug fixes.
 
 I designed a versioning system around [Blender's data blocks](https://docs.blender.org/manual/en/latest/files/data_blocks.html) system. Each data block gets tagged with a version and layer, like `modelling`, `surfacing` or `lighting`. The build script merges all the layers into a single asset.
 
