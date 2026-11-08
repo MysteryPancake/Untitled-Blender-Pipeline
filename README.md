@@ -61,12 +61,6 @@ Building is a developer feature intended to manually build specific layers with 
 
 <img src="./images/built.png" width="600">
 
-The Status on the Assets and Builds pages is based on the folders:
-
-- **In progress** means something was published.
-- **Built** means a layer is built.
-- **Needs rebuild** means a layer was published after the latest build.
-
 ## Components
 
 ### Website
@@ -115,12 +109,12 @@ By default the server only listens on `127.0.0.1` and only accepts localhost ori
 
 The frontend is written in JavaScript and JSX using React. It uses [React Router](https://reactrouter.com/) for navigation and [React-Bootstrap](https://react-bootstrap.github.io/) for styling.
 
-```
+```js
 website/client/src/
   index.js     // Router and routes
   api.js       // Helper functions for interacting with the backend
   components/  // Reusable react components
-  pages/       // One file per route
+  pages/       // One page per route
 ```
 
 #### Pages
@@ -134,20 +128,16 @@ website/client/src/
 | `/debug` | Debug | Shows the backend URL the client is using for debugging. | None |
 | `*` | Not Found | 404 page. | None |
 
-On the Builds page, the status is one of the following:
-
-- **Built** is green
-- **Needs rebuild** is yellow
-- **In progress** is blue
-
-See [Building](#building) for more info.
+On the Builds page, the status is either `built`, `needs rebuild` or `in progress`. See [Building](#building) for more info.
 
 #### Components
 
-- **TopBar** is the navigation bar shown on every page.
-- **AddAsset** is a form that posts to `/assets/add`.
-- **AddTask** is a form that posts to `/tasks/add`.
-- **Timer** is a live countdown (or count up) to a date.
+| Component | Description |
+| --------- | ----------- |
+| **TopBar** | The navigation bar shown on every page. |
+| **AddAsset** | Form that posts to `/assets/add`. |
+| **AddTask** | Form that posts to `/tasks/add`. |
+| **Timer** | Live countdown to a date, used on the dashboard. |
 
 #### Backend Interaction
 
@@ -165,7 +155,7 @@ See [Building](#building) for more info.
 
 The Blender addon is written in Python using Blender's `bpy` API. The `blender` folder is the addon itself, which is zipped during [installation](#blender-addon-3).
 
-```
+```js
 blender/
   __init__.py      // Panels, operators and preferences
   layers.py        // Layer definitions
@@ -242,7 +232,7 @@ blender -b --factory-startup -P blender/build_cli.py -- --asset NAME --database 
 
 The website and the Blender addon share one folder, set with the `SG_DATABASE` environment variable:
 
-```
+```js
 SG_DATABASE/
   wip/<asset>/<layer>/<asset>_<layer>_v001.blend // Written by Publish in Blender
   build/<asset>/<asset>_v001.blend               // Written by build.bat and build_cli.py
