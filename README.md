@@ -134,10 +134,10 @@ On the Builds page, the status is either `built`, `needs rebuild` or `in progres
 
 | Component | Description |
 | --------- | ----------- |
-| **TopBar** | The navigation bar shown on every page. |
-| **AddAsset** | Form that posts to `/assets/add`. |
-| **AddTask** | Form that posts to `/tasks/add`. |
-| **Timer** | Live countdown to a date, used on the dashboard. |
+| TopBar | The navigation bar shown on every page. |
+| AddAsset | Form that posts to `/assets/add`. |
+| AddTask | Form that posts to `/tasks/add`. |
+| Timer | Live countdown to a date, used on the dashboard. |
 
 #### Backend Interaction
 
@@ -169,23 +169,23 @@ blender/
 
 #### Panels
 
-All panels are in the 3D Viewport sidebar (`N`) under the **Shitgrid** tab.
+All panels are in the 3D Viewport sidebar (`N`) under the "Shitgrid" tab.
 
 | Panel | Description |
 | --- | --- |
-| **Publish** | Choose an asset name and layer, then publish. The asset name box suggests assets found in `wip` and `build`. |
-| **Update** | Checks which tagged data blocks are outdated, then rebuilds the ticked ones. Has an **Auto Update** option and an **Update Transform** checkbox. |
-| **Fetch** | Appends the latest build of an asset, or builds it live if no build exists yet. |
-| **Inspect** | Lists the asset, layer and version of the selected objects and outliner items. **Unlink Asset** removes their tags. |
-| **(DEV) Build** | Builds a specific layer at a specific version. Only visible when **Developer Mode** is on. |
+| Publish | Choose an asset name and layer, then publish. The asset name box suggests assets found in `wip` and `build`. |
+| Update | Checks which tagged data blocks are outdated, then rebuilds the ticked ones. Has an "Auto Update" option and an "Update Transform" option. |
+| Fetch | Appends the latest build of an asset, or builds it live if no build exists yet. |
+| Inspect | Lists the asset, layer and version of the selected objects and outliner items. "Unlink Asset" removes their tags. |
+| (DEV) Build | Builds a specific layer at a specific version. Only visible when "Developer Mode" is on. |
 
 #### Preferences
 
 | Preference | Description |
 | --- | --- |
-| **Auto Update** | Checks for updates and applies them whenever a file is loaded. |
-| **Make asset folder if missing** | Lets Publish create the `wip/<asset>/` folder when it doesn't exist yet. |
-| **Developer Mode** | Shows the **(DEV) Build** panel. |
+| Auto Update | Checks for updates and applies them whenever a file is loaded. |
+| Make asset folder if missing | Lets Publish create the `wip/<asset>/` folder when it doesn't exist yet. |
+| Developer Mode | Shows the "(DEV) Build" panel. |
 
 #### Layers
 
@@ -218,7 +218,7 @@ Data blocks are tagged with these custom properties when they're published:
 
 #### Builds and the Asset Browser
 
-A build is saved to `build/<asset>/<asset>_v001.blend` with its root collection marked as an asset. It's also added to the catalog file `build/blender_assets.cats.txt`, so builds are listed in Blender's Asset Browser. The addon registers the `build` folder as an asset library called **Asset Builds**.
+A build is saved to `build/<asset>/<asset>_v001.blend` with its root collection marked as an asset. It's also added to the catalog file `build/blender_assets.cats.txt`, so builds are listed in Blender's Asset Browser. The addon registers the `build` folder as an asset library called "Asset Builds".
 
 Builds can be made from inside Blender with the (DEV) Build panel, or headlessly. `build.bat` asks for an asset name and runs `build_cli.py` through Blender in background mode, which builds every layer of the asset using the latest versions. It needs `SG_DATABASE` to be set, and uses `BLENDER_EXE` to find Blender.
 
