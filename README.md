@@ -123,7 +123,9 @@ SG_DATABASE/
 
 ## Environment Variables
 
-For the website client and server, there's example files called `.env.example`. Copy them to `.env` to edit them.
+For the website client and server, there's example files called `.env.example`.
+
+You need to copy them to `.env` and edit them.
 
 ### Global
 
