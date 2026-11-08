@@ -125,9 +125,7 @@ SG_DATABASE/
 
 For the website client and server, there's example files called `.env.example`. Copy them to `.env` to edit them.
 
-### Shared
-
-Keep these the same everywhere.
+### Global
 
 | Variable | Used by | Required | Description |
 | --- | --- | --- | --- |
