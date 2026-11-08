@@ -95,11 +95,13 @@ The backend is written in JavaScript using Express.
 
 It doesn't use a database for now, just basic file storage in `assets.json` and `tasks.json`.
 
-| Endpoint | Description |
-| --- | --- |
-| `GET /assets/get`, `POST /assets/add` | List and add assets. Adding creates `wip/<asset>/` before saving `assets.json`. |
-| `GET /tasks/get`, `POST /tasks/add` | List and add tasks |
-| `GET /builds/get` | Status, versions in `build/<asset>/`, and the latest version of each layer in `wip/<asset>/<layer>/` |
+| Endpoint | Method | Description |
+| --- | --- | --- |
+| `/assets/get` | `GET` | List assets |
+| `/assets/add` | `POST` | Add an asset. Creates `wip/<asset>/` and updates `assets.json`. |
+| `/tasks/get` | `GET` | List tasks |
+| `/tasks/add` | `POST` | Add a task |
+| `/builds/get` | `GET` | Returns the status, versions in `build/<asset>/`, and the latest version of each layer in `wip/<asset>/<layer>/` |
 
 By default the server only listens on `127.0.0.1` and only accepts localhost origins (see `SG_HOST` and `SG_CORS_ORIGIN` below).
 
