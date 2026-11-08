@@ -242,7 +242,7 @@ SG_DATABASE/
 
 For the website client and server, there's example files called `.env.example`.
 
-You need to copy them to `.env` and edit them to set some environment variables below.
+You can copy them to `.env` and edit them to set some environment variables below.
 
 ### Global
 
