@@ -55,6 +55,12 @@ Building is a developer feature intended to manually build specific layers with 
 
 <img src="./images/built.png" width="600">
 
+The Status on the Assets and Builds pages is based on the folders:
+
+- **In progress** means something was published.
+- **Built** means a layer is built.
+- **Needs rebuild** means a layer was published after the latest build.
+
 ## Components
 
 ### Website
@@ -65,6 +71,8 @@ The website is designed to imitate Shotgrid, with basic abilities to create and 
 
 When an asset is added via the frontend, the backend creates a folder on disk within the `wip` folder.
 
+The Builds page reads the same folders the Blender addon writes to. It lists each asset's latest build and the latest published version of every layer (see [shared database](#shared-database)).
+
 <img src="./images/wipfolder.png" width="600">
 
 The folders are used by the Blender addon as described below.
@@ -73,7 +81,7 @@ The folders are used by the Blender addon as described below.
 
 The Blender addon is responsible for publishing, version control and building.
 
-Once a `wip` asset folder is added via the website, the addon can publish Blender files into that folder.
+Once a `wip` asset folder is added via the website, the addon can publish Blender files into that folder. The asset name boxes in Publish and Fetch suggest every asset found in `wip` and `build`, so assets created on the website show up in Blender.
 
 The build scripts take `wip` files and consolidate them into single assets, located in the `build` folder.
 
@@ -85,6 +93,14 @@ The backend is written in JavaScript using Express.
 
 It doesn't use a database for now, just basic file storage in `assets.json` and `tasks.json`.
 
+| Endpoint | Description |
+| --- | --- |
+| `GET /assets/get`, `POST /assets/add` | List and add assets. Adding creates `wip/<asset>/` before saving `assets.json`. |
+| `GET /tasks/get`, `POST /tasks/add` | List and add tasks |
+| `GET /builds/get` | Status, versions in `build/<asset>/`, and the latest version of each layer in `wip/<asset>/<layer>/` |
+
+By default the server only listens on `127.0.0.1` and only accepts localhost origins (see `SG_HOST` and `SG_CORS_ORIGIN` below).
+
 <img src="images/web_backend_full.svg">
 
 ### Website Frontend
@@ -95,18 +111,48 @@ The frontend is written in JavaScript and JSX using React.
 
 The Blender addon is written in Python.
 
+## Shared Database
+
+The website and the Blender addon share one folder, set with the `SG_DATABASE` environment variable:
+
+```
+SG_DATABASE/
+  wip/<asset>/<layer>/<asset>_<layer>_v001.blend // Written by Publish in Blender
+  build/<asset>/<asset>_v001.blend               // Written by build.bat and build_cli.py
+```
+
 ## Environment Variables
 
-### Website
+For the website client and server, there's example files called `.env.example`. Copy them to `.env` to edit them.
 
-- Set `SG_WEB_DB` to the folder you want the JSON files to be stored, for example `C:/web_db`
-- Set `REACT_APP_SG_SERVER` to whatever URL the backend is hosted on, for example `http://localhost`
-- Set `REACT_APP_SG_PORT` to whatever port the backend is hosted on, for example `5000`
+### Shared
+
+Keep these the same everywhere.
+
+| Variable | Used by | Required | Description |
+| --- | --- | --- | --- |
+| `REACT_APP_SG_PORT` | Client and Server | Yes | Backend port, for example `5000`. |
+| `SG_DATABASE` | Server and Blender Addon | Yes | The shared Blender database folder, for example `C:/blender_db`. |
+
+### Client
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `REACT_APP_SG_SERVER` | Yes | Backend URL including the scheme, for example `http://localhost`. |
+
+### Server
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `SG_WEB_DB` | Yes | Folder for the JSON files, for example `C:/web_db`. |
+| `SG_HOST` | No | Host to listen on, for example `127.0.0.1`. |
+| `SG_CORS_ORIGIN` | No | Comma-separated browser origins to allow. Defaults to any localhost origin. |
 
 ### Blender Addon
 
-- The Blender database must be set in the addon preferences.
-- Set it to the folder you want Blender files to be saved, for example `C:/blender_db`
+| Variable | Required | Description |
+| --- | --- | --- |
+| `BLENDER_EXE` | No | Path to `blender.exe`, used by `build.bat`. |
 
 ## Installation
 
@@ -115,14 +161,16 @@ The Blender addon is written in Python.
 1. Install NPM and Node.js
 2. Go to `website/client`
 3. Run `npm install`
-4. Run `npm start`
+4. Create `.env` from `.env.example`
+5. Run `npm start`
 
 ### Website Backend
 
 1. Install NPM and Node.js
 2. Go to `website/server`
 3. Run `npm install`
-4. Run `npm start`
+4. Create `.env` from `.env.example`
+5. Run `npm run dev`. For older node versions, set the variables in your shell and run `npm start`.
 
 ### Blender Addon
 

@@ -3,50 +3,45 @@ import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
+import { apiPost } from '../api';
+
+const EMPTY_FORM = { taskName: "", taskDesc: "" };
 
 class AddTask extends React.Component {
 	constructor(props) {
 		super(props);
 		this.state = {
 			show: false,
-			taskName: "",
-			taskDesc: ""
+			error: "",
+			...EMPTY_FORM
 		};
 	}
 
 	showModal = () => {
-		this.setState({ show: true });
+		this.setState({ show: true, error: "" });
 	}
 
 	hideModal = () => {
-		this.setState({ show: false });
-	}
-
-	validate = async(e) => {
-		if (e.ok) {
-			window.location.reload();
-		} else {
-			const msg = e.message || await e.text();
-			this.setState({ error: msg });
-		}
+		this.setState({ show: false, error: "" });
 	}
 
 	submit = (e) => {
 		e.preventDefault();
-		fetch(`${process.env.REACT_APP_SG_SERVER}:${process.env.REACT_APP_SG_PORT}/tasks/add`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				taskName: this.state.taskName,
-				taskDesc: this.state.taskDesc
-			})
-		}).then(this.validate).catch(this.validate);
+		this.setState({ error: "" });
+		apiPost('/tasks/add', {
+			taskName: this.state.taskName,
+			taskDesc: this.state.taskDesc
+		}).then(() => {
+			this.setState({ show: false, ...EMPTY_FORM });
+			if (this.props.onAdded) this.props.onAdded();
+		}).catch((err) => this.setState({ error: err.message }));
 	}
 
 	render() {
+		const { onAdded, ...buttonProps } = this.props;
 		return (
 			<>
-				<Button {...this.props} onClick={this.showModal}>{this.props.children}</Button>
+				<Button {...buttonProps} onClick={this.showModal}>{this.props.children}</Button>
 				<Modal show={this.state.show} onHide={this.hideModal} backdrop="static" keyboard={false} centered>
 					<Form onSubmit={this.submit}>
 						<Modal.Header closeButton>
