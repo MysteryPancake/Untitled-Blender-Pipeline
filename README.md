@@ -2,15 +2,17 @@
 
 # Untitled Blender Pipeline
 
-I made this pipeline during my holiday break in 2023. It was an experiment to see how much I could get done in 2 weeks.
+This pipeline was an experiment to see how much I could get done in 2 weeks.
 
-Since then I've updated it for Blender 5.3, including some new features and bug fixes.
+It was made during my holiday break at ALA in 2023. The idea was to use it for our coursework in Blender next semester. Sadly they picked a different pipeline called [Shino](https://superhivemarket.com/products/shino) instead.
 
 I designed a versioning system around [Blender's data blocks](https://docs.blender.org/manual/en/latest/files/data_blocks.html) system. Each data block gets tagged with a version and layer, like `modelling`, `surfacing` or `lighting`. The build script merges all the layers into a single asset.
 
 You can create and check the status of assets on the frontend website. The backend creates `wip` and `build` folders for Blender to use.
 
 Later I realised I reinvented the wheel after looking at [Kitsu's codebase](https://studio.blender.org/tools/addons/blender_kitsu). They used the same idea of transferring data between objects.
+
+Since then I've updated it for Blender 5.3, including some new features and bug fixes.
 
 <img src="./images/thumb.jpg" width="600">
 
