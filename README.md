@@ -128,7 +128,7 @@ website/client/src/
 | `/debug` | Debug | Shows the backend URL the client is using for debugging. | None |
 | `*` | Not Found | 404 page. | None |
 
-On the Builds page, the status is either `built`, `needs rebuild` or `in progress`. See [Building](#building) for more info.
+On the Builds page, the status is either `built`, `needs rebuild` or `in progress` (see [Building](#building) for more info).
 
 #### Components
 
@@ -141,7 +141,7 @@ On the Builds page, the status is either `built`, `needs rebuild` or `in progres
 
 #### Backend Interaction
 
-`api.js` builds the backend URL from `REACT_APP_SG_SERVER` and `REACT_APP_SG_PORT` (see [environment variables](#environment-variables)).
+`api.js` builds the backend URL from `REACT_APP_SG_SERVER` and `REACT_APP_SG_PORT` (see [Environment Variables](#environment-variables) for more info).
 
 #### Scripts
 
@@ -218,9 +218,9 @@ Data blocks are tagged with these custom properties when they're published:
 
 #### Builds and the Asset Browser
 
-A build is saved to `build/<asset>/<asset>_v001.blend` with its root collection marked as an asset. It's also added to the catalog file `build/blender_assets.cats.txt`, so builds are listed in Blender's Asset Browser. The addon registers the `build` folder as an asset library called "Asset Builds".
+A build is saved to `build/<asset>/<asset>_v001.blend` with its root marked as an asset. It's also added to the catalog file `build/blender_assets.cats.txt`, so builds are listed in Blender's Asset Browser. The addon registers the `build` folder as an asset library called "Asset Builds".
 
-Builds can be made from inside Blender with the (DEV) Build panel, or headlessly. `build.bat` asks for an asset name and runs `build_cli.py` through Blender in background mode, which builds every layer of the asset using the latest versions. It needs `SG_DATABASE` to be set, and uses `BLENDER_EXE` to find Blender.
+Builds can be made from inside Blender using the "(DEV) Build" panel, or headlessly using `build.bat`. This runs `build_cli.py` in Blender's background mode, which builds every layer of the asset using the latest versions. This requires `SG_DATABASE` and `BLENDER_EXE` to be set.
 
 You can also run it directly:
 
@@ -230,7 +230,7 @@ blender -b --factory-startup -P blender/build_cli.py -- --asset NAME --database 
 
 ## Shared Database
 
-The website and the Blender addon share one folder, set with the `SG_DATABASE` environment variable:
+The website and the Blender addon share one folder. This is set with the `SG_DATABASE` environment variable:
 
 ```js
 SG_DATABASE/
@@ -242,7 +242,7 @@ SG_DATABASE/
 
 For the website client and server, there's example files called `.env.example`.
 
-You need to copy them to `.env` and edit them.
+You need to copy them to `.env` and edit them to set some environment variables below.
 
 ### Global
 
