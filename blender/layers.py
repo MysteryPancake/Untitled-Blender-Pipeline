@@ -1,21 +1,24 @@
 import bpy
-from abc import ABCMeta, abstractmethod
 
-from .transfer_map import *
-from .utils import *
-from .utils_kitsu import *
+from .transfer_map import TransferMap, TransferSettings
+from .utils import transfer_version
+from .utils_kitsu import (
+	remap_new_modifiers, rebind_modifiers, copy_transform, match_topology,
+	transfer_surfacing, transfer_shapekeys_proximity, copy_drivers,
+	transfer_new_modifiers, remap_modifiers,
+)
 
-# Required properties for all layer classes
-class LayerBase(ABCMeta):
+class LayerBase:
+	"""Required properties for all layer classes"""
 	folder: str = NotImplemented
 	label: str = NotImplemented
-	trigger_update: "list[str]" = NotImplemented
+	# Sub-object data blocks which could be part of this layer
+	trigger_update: list[str] = NotImplemented
 	find_parents: bool = True
 
 	@staticmethod
-	@abstractmethod
 	def process(map: TransferMap, settings: TransferSettings):
-		pass
+		raise NotImplementedError
 
 class LayerModelling(LayerBase):
 	"""
@@ -36,7 +39,7 @@ class LayerModelling(LayerBase):
 	def process(map: TransferMap, settings: TransferSettings):
 		# Handle new models
 		for obj in map.new_objs:
-			if obj.type in __class__.object_blacklist:
+			if obj.type in LayerModelling.object_blacklist:
 				continue
 
 			# Wipe animation data
@@ -45,7 +48,8 @@ class LayerModelling(LayerBase):
 			# Wipe materials
 			obj.active_material_index = 0
 			for _ in range(len(obj.material_slots)):
-				bpy.ops.object.material_slot_remove({"object": obj})
+				with bpy.context.temp_override(object=obj):
+					bpy.ops.object.material_slot_remove()
 
 			# Wipe shape keys, these belong in rigging
 			if hasattr(obj.data, "shape_keys"):
@@ -65,7 +69,7 @@ class LayerModelling(LayerBase):
 
 		# Handle deleted models
 		for obj in map.deleted_objs:
-			if obj.type in __class__.object_blacklist:
+			if obj.type in LayerModelling.object_blacklist:
 				continue
 			bpy.data.objects.remove(obj)
 		map.remove_blank_collections()
@@ -129,19 +133,19 @@ class LayerModelling(LayerBase):
 
 				if obj_target_original.vertex_groups:
 					# Transfer vertex groups
-					bpy.ops.object.data_transfer(
-						{
-							"object": obj_target_original,
-							"active_object": obj_target_original,
-							"selected_editable_objects": [obj_target],
-						},
-						data_type="VGROUP_WEIGHTS",
-						use_create=True,
-						vert_mapping='POLYINTERP_NEAREST',
-						layers_select_src="ALL",
-						layers_select_dst="NAME",
-						mix_mode="REPLACE",
-					)
+					with bpy.context.temp_override(
+						object=obj_target_original,
+						active_object=obj_target_original,
+						selected_editable_objects=[obj_target],
+					):
+						bpy.ops.object.data_transfer(
+							data_type="VGROUP_WEIGHTS",
+							use_create=True,
+							vert_mapping='POLYINTERP_NEAREST',
+							layers_select_src="ALL",
+							layers_select_dst="NAME",
+							mix_mode="REPLACE",
+						)
 				
 				if has_keys:
 					# Transfer shapekeys
@@ -293,13 +297,15 @@ class LayerLighting(LayerBase):
 			transfer_version(obj_source, obj_target)
 		
 		# Transfer world (copy_attributes doesn't work for some reason)
-		bpy.context.scene.world = map.scene.world
+		# Keep our current world if the source doesn't have one
+		if map.scene.world:
+			bpy.context.scene.world = map.scene.world
 
 listed_layers = [LayerModelling, LayerGrooming, LayerRigging, LayerMaterials, LayerAssembly, LayerAnimation, LayerLighting]
 
 # For easier data access
 layer_menu = []
 layer_lookup = {}
-for layer in listed_layers:
-	layer_menu.append((layer.folder, layer.label, ""))
-	layer_lookup[layer.folder] = layer
+for _layer in listed_layers:
+	layer_menu.append((_layer.folder, _layer.label, ""))
+	layer_lookup[_layer.folder] = _layer

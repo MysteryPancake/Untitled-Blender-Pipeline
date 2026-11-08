@@ -3,52 +3,46 @@ import Alert from 'react-bootstrap/Alert';
 import Button from 'react-bootstrap/Button';
 import Modal from 'react-bootstrap/Modal';
 import Form from 'react-bootstrap/Form';
+import { apiPost } from '../api';
+
+const EMPTY_FORM = { assetName: "", assetType: "setpiece", assetDesc: "" };
 
 class AddAsset extends React.Component {
 	constructor(props) {
 		super(props);
 		this.state = {
 			show: false,
-			assetName: "",
-			assetType: "setpiece",
-			assetDesc: ""
+			error: "",
+			...EMPTY_FORM
 		};
 	}
 
 	showModal = () => {
-		this.setState({ show: true });
+		this.setState({ show: true, error: "" });
 	}
 
 	hideModal = () => {
-		this.setState({ show: false });
-	}
-
-	validate = async(e) => {
-		if (e.ok) {
-			window.location.reload();
-		} else {
-			const msg = e.message || await e.text();
-			this.setState({ error: msg });
-		}
+		this.setState({ show: false, error: "" });
 	}
 
 	submit = (e) => {
 		e.preventDefault();
-		fetch(`${process.env.REACT_APP_SG_SERVER}:${process.env.REACT_APP_SG_PORT}/assets/add`, {
-			method: 'POST',
-			headers: { 'Content-Type': 'application/json' },
-			body: JSON.stringify({
-				assetName: this.state.assetName,
-				assetType: this.state.assetType,
-				assetDesc: this.state.assetDesc
-			})
-		}).then(this.validate).catch(this.validate);
+		this.setState({ error: "" });
+		apiPost('/assets/add', {
+			assetName: this.state.assetName,
+			assetType: this.state.assetType,
+			assetDesc: this.state.assetDesc
+		}).then(() => {
+			this.setState({ show: false, ...EMPTY_FORM });
+			if (this.props.onAdded) this.props.onAdded();
+		}).catch((err) => this.setState({ error: err.message }));
 	}
 
 	render() {
+		const { onAdded, ...buttonProps } = this.props;
 		return (
 			<>
-				<Button {...this.props} onClick={this.showModal}>{this.props.children}</Button>
+				<Button {...buttonProps} onClick={this.showModal}>{this.props.children}</Button>
 				<Modal show={this.state.show} onHide={this.hideModal} backdrop="static" keyboard={false} centered>
 					<Form onSubmit={this.submit}>
 						<Modal.Header closeButton>
@@ -62,6 +56,8 @@ class AddAsset extends React.Component {
 								type="text"
 								autoFocus
 								maxLength={255}
+								pattern="[\w\- ]+"
+								title="Letters, numbers, spaces, hyphens and underscores only"
 								value={this.state.assetName}
 								onChange={e => this.setState({ assetName: e.target.value })}
 								required
@@ -72,7 +68,7 @@ class AddAsset extends React.Component {
 								value={this.state.assetType}
 								onChange={e => this.setState({ assetType: e.target.value })}
 							>
-								<option value="setpiece" default>Set Piece</option>
+								<option value="setpiece">Set Piece</option>
 								<option value="character">Character</option>
 								<option value="prop">Prop</option>
 								<option value="fx">FX</option>

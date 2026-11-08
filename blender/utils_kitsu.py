@@ -4,8 +4,8 @@ import numpy as np
 
 from .transfer_map import TransferMap
 
-# Kitsu has lots of utilities for transferring data between objects
-# I stole everything below from Kitsu :)
+# Kitsu has lots of utilities for transferring data between objects, useful for this pipeline too
+# The stuff below is ripped from Kitsu's codebase:
 # projects.blender.org/studio/blender-studio-pipeline/src/branch/main/scripts-blender/addons/asset_pipeline/docs/production_config_heist/task_layers.py
 
 def transfer_new_modifiers(obj_source: bpy.types.Object, obj_target: bpy.types.Object):
@@ -20,7 +20,8 @@ def transfer_new_modifiers(obj_source: bpy.types.Object, obj_target: bpy.types.O
 			for target_mod_i, target_mod in enumerate(obj_target.modifiers):
 				if target_mod.name == name_prev:
 					idx = target_mod_i + 1
-		bpy.ops.object.modifier_move_to_index({"object": obj_target}, modifier=mod_new.name, index=idx)
+		with bpy.context.temp_override(object=obj_target):
+			bpy.ops.object.modifier_move_to_index(modifier=mod_new.name, index=idx)
 
 def remap_new_modifiers(obj: bpy.types.Object, map: TransferMap):
 	for i, mod_source in enumerate(obj.modifiers):
@@ -43,24 +44,24 @@ def remap_modifiers(obj_source: bpy.types.Object, obj_target: bpy.types.Object, 
 				value = map.matching_objs_target[value]
 			setattr(mod_target, prop, value)
 
+def _bind_modifier(obj_target: bpy.types.Object, bind_op, modifier_name: str) -> None:
+	"""Runs a bind operator on a modifier (binding twice, like toggling bind off and on)"""
+	for _ in range(2):
+		with bpy.context.temp_override(object=obj_target, active_object=obj_target):
+			bind_op(modifier=modifier_name)
+
 def rebind_modifiers(obj_target: bpy.types.Object):
 	"""Rebinds corrective smooth, surface deform and mesh deform modifiers"""
 	for mod in obj_target.modifiers:
 		if mod.type == "SURFACE_DEFORM":
-			if not mod.is_bound:
-				continue
-			for i in range(2):
-				bpy.ops.object.surfacedeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
+			if mod.is_bound:
+				_bind_modifier(obj_target, bpy.ops.object.surfacedeform_bind, mod.name)
 		elif mod.type == "MESH_DEFORM":
-			if not mod.is_bound:
-				continue
-			for i in range(2):
-				bpy.ops.object.meshdeform_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
+			if mod.is_bound:
+				_bind_modifier(obj_target, bpy.ops.object.meshdeform_bind, mod.name)
 		elif mod.type == "CORRECTIVE_SMOOTH":
-			if not mod.is_bind:
-				continue
-			for i in range(2):
-				bpy.ops.object.correctivesmooth_bind({"object": obj_target, "active_object": obj_target}, modifier=mod.name)
+			if mod.is_bind:
+				_bind_modifier(obj_target, bpy.ops.object.correctivesmooth_bind, mod.name)
 
 def match_topology(a: bpy.types.Object, b: bpy.types.Object) -> bool:
 	"""Checks if two objects have matching topology (efficiency over exactness)"""
@@ -107,7 +108,7 @@ def copy_parenting(source_ob: bpy.types.Object, target_ob: bpy.types.Object) -> 
 	target_ob.parent_bone = source_ob.parent_bone
 	target_ob.matrix_parent_inverse = source_ob.matrix_parent_inverse.copy()
 
-_invalid_keys: "set[str]" = {"group", "is_valid", "rna_type", "bl_rna"}
+_invalid_keys: set[str] = {"group", "is_valid", "rna_type", "bl_rna"}
 
 def copy_attributes(a: Any, b: Any) -> None:
 	keys = dir(a)
@@ -368,17 +369,54 @@ def transfer_shapekeys_proximity(obj_source, obj_target) -> None:
 			val = mathutils.Vector(sum(np.array(vals_weighted)))
 			sk_target.data[i].co = vert.co + val
 
+def transfer_color_attributes(obj_source: bpy.types.Object, obj_target: bpy.types.Object, topo_match: bool) -> None:
+	"""Transfers color attributes. Without matching topology only face corner colors can be transferred."""
+	src = obj_source.data.color_attributes
+	dst_mesh = obj_target.data
+	dst = dst_mesh.color_attributes
+
+	# Wipe our color attributes
+	for attr in list(dst):
+		dst.remove(attr)
+
+	for attr_from in src:
+		if not topo_match and attr_from.domain != "CORNER":
+			print(f"WARNING: Skipping '{attr_from.name}' on '{obj_target.name}', only face corner colors transfer without matching topology")
+			continue
+		attr_to = dst.new(name=attr_from.name, type=attr_from.data_type, domain=attr_from.domain)
+		if topo_match:
+			values = np.empty(len(attr_from.data) * 4, dtype=np.float32)
+			attr_from.data.foreach_get("color", values)
+			attr_to.data.foreach_set("color", values)
+		else:
+			transfer_corner_data(obj_source, obj_target, attr_from.data, attr_to.data, data_suffix="color")
+
+	# Keep the same active and render color
+	try:
+		if src.active_color_name and dst.get(src.active_color_name):
+			dst.active_color_name = src.active_color_name
+		if src.default_color_name and dst.get(src.default_color_name):
+			dst.default_color_name = src.default_color_name
+	except (AttributeError, TypeError, RuntimeError):
+		pass
+
+	# Set 'PREVIEW' color attribute as active
+	if dst.get("PREVIEW"):
+		dst.active_color_name = "PREVIEW"
+
 def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Object, topo_match: bool):
 	"""Transfers materials, UVs, seams, vertex colors and face data"""
 	# Wipe our material slots
 	while len(obj_target.material_slots) > len(obj_source.material_slots):
 		obj_target.active_material_index = len(obj_source.material_slots)
-		bpy.ops.object.material_slot_remove({"object": obj_target})
+		with bpy.context.temp_override(object=obj_target):
+			bpy.ops.object.material_slot_remove()
 
 	# Transfer material slots
 	for idx in range(len(obj_source.material_slots)):
 		if idx >= len(obj_target.material_slots):
-			bpy.ops.object.material_slot_add({"object": obj_target})
+			with bpy.context.temp_override(object=obj_target):
+				bpy.ops.object.material_slot_add()
 		obj_target.material_slots[idx].link = obj_source.material_slots[idx].link
 		obj_target.material_slots[idx].material = obj_source.material_slots[idx].material
 
@@ -428,16 +466,16 @@ def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Objec
 		for edge_from, edge_to in zip(obj_source.data.edges, obj_target.data.edges):
 			edge_to.use_seam = edge_from.use_seam
 	else:
-		bpy.ops.object.data_transfer(
-			{
-				"object": obj_source_original,
-				"active_object": obj_source_original,
-				"selected_editable_objects": [obj_target],
-			},
-			data_type="SEAM",
-			edge_mapping="NEAREST",
-			mix_mode="REPLACE",
-		)
+		with bpy.context.temp_override(
+			object=obj_source_original,
+			active_object=obj_source_original,
+			selected_editable_objects=[obj_target],
+		):
+			bpy.ops.object.data_transfer(
+				data_type="SEAM",
+				edge_mapping="NEAREST",
+				mix_mode="REPLACE",
+			)
 
 	# Wipe our UV layers
 	for _ in range(len(obj_target.data.uv_layers)):
@@ -460,26 +498,8 @@ def transfer_surfacing(obj_source: bpy.types.Object, obj_target: bpy.types.Objec
 			obj_target.data.uv_layers[uv_l.name].active_render = True
 			break
 
-	# Wipe our vertex colors
-	for _ in range(len(obj_target.data.vertex_colors)):
-		obj_target.data.vertex_colors.remove(obj_target.data.vertex_colors[0])
-
-	# Transfer vertex colors
-	if topo_match:
-		for vcol_from in obj_source.data.vertex_colors:
-			vcol_to = obj_target.data.vertex_colors.new(name=vcol_from.name, do_init=False)
-			for loop in obj_target.data.loops:
-				vcol_to.data[loop.index].color = vcol_from.data[loop.index].color
-	else:
-		for vcol_from in obj_source.data.vertex_colors:
-			vcol_to = obj_target.data.vertex_colors.new(name=vcol_from.name, do_init=False)
-			transfer_corner_data(obj_source, obj_target, vcol_from.data, vcol_to.data, data_suffix="color")
-
-	# Set 'PREVIEW' vertex color layer as active
-	for idx, vcol in enumerate(obj_target.data.vertex_colors):
-		if vcol.name == "PREVIEW":
-			obj_target.data.vertex_colors.active_index = idx
-			break
+	# Transfer color attributes (vertex colors)
+	transfer_color_attributes(obj_source, obj_target, topo_match)
 
 	# Set 'Baking' or 'UVMap' UV layer as active
 	for idx, uvlayer in enumerate(obj_target.data.uv_layers):

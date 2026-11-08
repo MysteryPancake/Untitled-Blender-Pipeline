@@ -1,9 +1,18 @@
 import bpy, os
+from typing import Any
 from bpy.app.handlers import persistent
 from uuid import uuid4
 
 from .build import AssetBuilder
-from .layers import *
+from .layers import listed_layers, layer_lookup, layer_menu, LayerMaterials
+from .transfer_map import TransferSettings
+from .utils import (
+	ENV_VAR, get_prefs, get_database, get_blocks, list_versions, latest_version,
+	clean_asset_name, resolve_asset, search_assets,
+)
+
+SG_KEYS = ("sg_asset", "sg_layer", "sg_version", "sg_id")
+DATABASE_ERROR = "Set the SG_DATABASE environment variable and restart Blender"
 
 bl_info = {
 	"name": "Shitgrid Pipeline",
@@ -16,21 +25,31 @@ bl_info = {
 	"category": "ALA",
 }
 
-# TODO: Find somewhere to put this (it won't run in register)
 def setup_asset_library() -> None:
 	"""Registers the build folder to display in the asset library"""
-	prefs = bpy.context.preferences
-	build_folder = os.path.join(prefs.addons[__name__].preferences.database, "build")
+	database = get_database()
+	if not database:
+		return
+	build_folder = os.path.join(database, "build")
+	if not os.path.isdir(build_folder):
+		return
+
+	libraries = bpy.context.preferences.filepaths.asset_libraries
 	lib_name = "Asset Builds"
 
-	# Don't add the same library twice
-	for lib in prefs.filepaths.asset_libraries:
+	# Don't add the same library twice, but follow the database if it moved
+	for lib in libraries:
 		if lib.name == lib_name:
+			if os.path.normpath(lib.path) != os.path.normpath(build_folder):
+				lib.path = build_folder
 			return
 
-	bpy.ops.preferences.asset_library_add(directory=build_folder)
-	sg_lib = prefs.filepaths.asset_libraries[-1]
-	sg_lib.name = lib_name
+	try:
+		libraries.new(name=lib_name, directory=build_folder)
+	except (AttributeError, TypeError):
+		# Older Blender versions only have the operator
+		bpy.ops.preferences.asset_library_add(directory=build_folder)
+		libraries[-1].name = lib_name
 
 def tag_data(data, name: str, layer: str, version: int) -> None:
 	"""
@@ -53,19 +72,21 @@ def tag_data(data, name: str, layer: str, version: int) -> None:
 
 class Preferences(bpy.types.AddonPreferences):
 	"""Preferences for this addon"""
-	bl_idname = __name__
-	# Database folder path
-	database: bpy.props.StringProperty(name="Database Folder", default="A:\\mav\\2023\\wip\\s123\\reference\\blenderLibrary", subtype="FILE_PATH")
+	bl_idname = __package__
 	# Whether to check for updates on file load
 	auto_update: bpy.props.BoolProperty(name="Auto Update", default=False)
 	# Whether to automatically make an asset folder
 	make_folder: bpy.props.BoolProperty(name="Make asset folder if missing", default=True)
 	# Whether to show developer options on UI
-	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=True)
+	dev_mode: bpy.props.BoolProperty(name="Developer Mode", default=False)
 
 	def draw(self, context):
 		layout = self.layout
-		layout.prop(self, "database")
+		database = get_database()
+		if database:
+			layout.label(text=f"Database Folder: {database}", icon="INFO")
+		else:
+			layout.label(text=f"The {ENV_VAR} environment variable isn't set", icon="ERROR")
 		layout.prop(self, "dev_mode")
 		layout.prop(self, "make_folder")
 
@@ -81,10 +102,12 @@ class Properties(bpy.types.PropertyGroup):
 	"""Properties shown in the UI panel"""
 	# Publish properties
 	publish_layer: bpy.props.EnumProperty(name="Layer", items=layer_menu)
-	publish_asset: bpy.props.StringProperty(name="Asset Name")
+	
+	# Suggests assets from the shared database
+	publish_asset: bpy.props.StringProperty(name="Asset Name", search=search_assets, search_options={"SORT", "SUGGESTION"})
 
 	# Fetch properties
-	fetch_asset: bpy.props.StringProperty(name="Asset Name")
+	fetch_asset: bpy.props.StringProperty(name="Asset Name", search=search_assets, search_options={"SORT", "SUGGESTION"})
 
 	# Update properties
 	show_update_list: bpy.props.BoolProperty(default=False)
@@ -101,6 +124,60 @@ def get_transfer_settings(props: Properties):
 	settings.update_transform = props.update_transform
 	return settings
 
+def collect_image_nodes(node_tree, found: list[Any], seen: set[int]) -> None:
+	"""Collects images used in a node tree, including nested node groups"""
+	if node_tree is None or node_tree.as_pointer() in seen:
+		return
+	seen.add(node_tree.as_pointer())
+	for node in node_tree.nodes:
+		if node.type == "TEX_IMAGE" and node.image:
+			found.append(node.image)
+		elif node.type == "GROUP":
+			collect_image_nodes(node.node_tree, found, seen)
+
+def collect_publish_blocks(scene: bpy.types.Scene, layer) -> list[Any]:
+	"""
+	Finds the data blocks of a layer which belong to this scene's asset.\n
+	Orphans and data from other scenes or assets aren't tagged.
+	"""
+	root = scene.collection
+	objects = list(root.all_objects)
+	blocks: list[Any] = list(root.children_recursive) + objects
+
+	# Sub object data blocks that belong to this layer
+	wanted: set[int] = set()
+	for data_type in layer.trigger_update:
+		wanted.update(block.as_pointer() for block in get_blocks(data_type))
+
+	candidates: list[Any] = [scene.world]
+	for obj in objects:
+		data = obj.data
+		candidates.append(data)
+		candidates.append(getattr(data, "shape_keys", None))
+		for slot in obj.material_slots:
+			candidates.append(slot.material)
+		for system in getattr(obj, "particle_systems", ()):
+			candidates.append(system.settings)
+
+	# Textures used by materials and worlds
+	images: list[Any] = []
+	seen: set[int] = set()
+	for candidate in candidates:
+		node_tree = getattr(candidate, "node_tree", None)
+		if node_tree:
+			collect_image_nodes(node_tree, images, seen)
+	candidates.extend(images)
+
+	added: set[int] = set()
+	for candidate in candidates:
+		if candidate is None:
+			continue
+		pointer = candidate.as_pointer()
+		if pointer in wanted and pointer not in added:
+			added.add(pointer)
+			blocks.append(candidate)
+	return blocks
+
 class Publish_Operator(bpy.types.Operator):
 	"""Save and increment the version of the above assets"""
 	bl_idname = "pipeline.publish"
@@ -111,51 +188,64 @@ class Publish_Operator(bpy.types.Operator):
 		if not props.publish_layer:
 			self.report({"ERROR_INVALID_INPUT"}, "Please select a layer!")
 			return {"CANCELLED"}
-		if not props.publish_asset:
-			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
+		try:
+			asset = clean_asset_name(props.publish_asset)
+		except ValueError as err:
+			self.report({"ERROR_INVALID_INPUT"}, str(err))
 			return {"CANCELLED"}
 
-		prefs = context.preferences.addons[__name__].preferences
-		wip_folder = os.path.join(prefs.database, "wip", props.publish_asset)
+		database = get_database()
+		if not database:
+			self.report({"ERROR"}, DATABASE_ERROR)
+			return {"CANCELLED"}
+		# Reuse the existing spelling so "rock" doesn't become a second asset next to "Rock"
+		asset = resolve_asset(asset)
+		wip_folder = os.path.join(database, "wip", asset)
 		if not os.path.exists(wip_folder):
-			if prefs.make_folder:
-				os.umask(0)
-				os.makedirs(wip_folder)
+			if get_prefs(context).make_folder:
+				os.makedirs(wip_folder, exist_ok=True)
 			else:
-				self.report({"ERROR"}, f"Asset folder '{props.publish_asset}' doesn't exist yet!")
+				self.report({"ERROR"}, f"Asset folder '{asset}' doesn't exist yet!")
 				return {"CANCELLED"}
 
 		# Structure is "master/wip/asset/layer/asset_layer_v001.blend" for now
 		layer_folder = os.path.join(wip_folder, props.publish_layer)
-		if not os.path.exists(layer_folder):
-			os.umask(0)
-			os.mkdir(layer_folder)
+		os.makedirs(layer_folder, exist_ok=True)
 
-		# Up version number based on file index in subfolder
-		version = len([p for p in os.listdir(layer_folder) if p.endswith(".blend")]) + 1
+		# Up version number based on the highest version found in the subfolder
+		version = latest_version(layer_folder) + 1
 
 		# Name is "asset_layer_v001.blend" for now
-		file_name = f"{props.publish_asset}_{props.publish_layer}_v{version:03d}.blend"
+		file_name = f"{asset}_{props.publish_layer}_v{version:03d}.blend"
 		path = os.path.join(layer_folder, file_name)
 
 		# I'm using custom data to associate data blocks with an asset, version and layer
-		# First tag all collections and objects which haven't already been tagged
-		root = context.scene.collection
-		for col in root.children_recursive:
-			tag_data(col, props.publish_asset, props.publish_layer, version)
-		for obj in root.all_objects:
-			tag_data(obj, props.publish_asset, props.publish_layer, version)
+		# Tag all collections, objects and layer data which haven't already been tagged
+		# Sub object data blocks are included when they belong to this layer
+		blocks = collect_publish_blocks(context.scene, layer_lookup[props.publish_layer])
 
-		# Next tag sub-object data blocks
-		for data_type in layer_lookup[props.publish_layer].trigger_update:
-			for block in getattr(bpy.data, data_type):
-				tag_data(block, props.publish_asset, props.publish_layer, version)
+		# Remember the previous tags so they can be restored if saving fails
+		snapshot = [(block, {k: block[k] for k in SG_KEYS if k in block}) for block in blocks]
+
+		for block in blocks:
+			tag_data(block, asset, props.publish_layer, version)
 
 		# Save a copy in the "wip" folder, this copy should never be touched!
-		bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=True, copy=True)
+		try:
+			bpy.ops.wm.save_as_mainfile(filepath=path, check_existing=True, copy=True)
+		except Exception as err:
+			# Revert tags, since the version doesn't exist on disk
+			for block, old in snapshot:
+				for key in SG_KEYS:
+					if key in old:
+						block[key] = old[key]
+					else:
+						block.pop(key, None)
+			self.report({"ERROR"}, f"Failed to save publish: {err}")
+			return {"CANCELLED"}
 
 		# Would be nice to add a popup for this
-		success_msg = f"Published {props.publish_asset} {props.publish_layer} version {version}!"
+		success_msg = f"Published {asset} {props.publish_layer} version {version}!"
 		self.report({"INFO"}, success_msg)
 
 		return {"FINISHED"}
@@ -174,17 +264,19 @@ class Publish_Panel(bpy.types.Panel):
 		layout.prop(props, "publish_layer")
 		layout.operator(Publish_Operator.bl_idname, icon="EXPORT")
 
-def get_updates() -> "dict[str, list[Any]]":
+def get_updates() -> dict[str, list[Any]]:
 	"""Builds a list of layer updates per asset"""
-	prefs = bpy.context.preferences.addons[__name__].preferences
+	database = get_database()
 
 	# Using a list instead of a set to preserve layer order
 	updates: dict[str, list[Any]] = {}
+	if not database:
+		return updates
 
 	# Find outdated data blocks
 	for layer in listed_layers:
 		for data_type in layer.trigger_update:
-			for block in getattr(bpy.data, data_type):
+			for block in get_blocks(data_type):
 				asset = block.get("sg_asset")
 				if not asset:
 					continue
@@ -192,19 +284,21 @@ def get_updates() -> "dict[str, list[Any]]":
 				if asset not in updates:
 					updates[asset] = []
 
-				# Don't check outdated layers again
-				layer = block.get("sg_layer")
-				if layer in updates[asset]:
+				block_layer = block.get("sg_layer")
+				current = block.get("sg_version")
+				if not block_layer or current is None:
 					continue
 
-				folder = os.path.join(prefs.database, "wip", asset, layer)
+				# Don't check outdated layers again
+				if block_layer in updates[asset]:
+					continue
+
+				folder = os.path.join(database, "wip", asset, block_layer)
 				if not os.path.exists(folder):
 					continue
 
-				current = block.get("sg_version")
-				latest = len([p for p in os.listdir(folder) if p.endswith(".blend")])
-				if latest > current and layer not in updates[asset]:
-					updates[asset].append(layer)
+				if latest_version(folder) > current:
+					updates[asset].append(block_layer)
 	return updates
 
 class Check_Updates_Operator(bpy.types.Operator):
@@ -244,6 +338,9 @@ class Update_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		props = context.scene.sg_props
+		if not get_database():
+			self.report({"ERROR"}, DATABASE_ERROR)
+			return {"CANCELLED"}
 		settings = get_transfer_settings(props)
 		try:
 			for item in props.update_items:
@@ -295,7 +392,7 @@ class Update_Panel(bpy.types.Panel):
 		props = context.scene.sg_props
 
 		# Auto-update button
-		layout.prop(context.preferences.addons[__name__].preferences, "auto_update")
+		layout.prop(get_prefs(context), "auto_update")
 
 		# Check updates and close button
 		if props.show_update_list:
@@ -344,34 +441,47 @@ class Fetch_Operator(bpy.types.Operator):
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
 
+		asset = resolve_asset(props.fetch_asset)
+
 		# Check for prebuilds generated by build.bat
-		prefs = context.preferences.addons[__name__].preferences
-		build_folder = os.path.join(prefs.database, "build", props.fetch_asset)
+		database = get_database()
+		if not database:
+			self.report({"ERROR"}, DATABASE_ERROR)
+			return {"CANCELLED"}
+		build_folder = os.path.join(database, "build", asset)
 		if not os.path.exists(build_folder):
-			self.report({"WARNING"}, f"Build folder for '{props.fetch_asset}' doesn't exist yet!")
+			self.report({"WARNING"}, f"Build folder for '{asset}' doesn't exist yet!")
 
 			# Build asset live when prebuilds aren't available
 			settings = get_transfer_settings(props)
 			# Avoid rebuilding material data in other layers
 			settings.replacing_materials = True
 
-			builder = AssetBuilder(props.fetch_asset)
+			builder = AssetBuilder(asset)
 			for layer in listed_layers:
 				try:
 					builder.process(layer, settings, -1)
 				except Exception as err:
 					self.report({"WARNING"}, str(err))
 		else:
-			# Sort by name to retrieve correct version order
-			versions = sorted([os.path.join(build_folder, f) for f in os.listdir(build_folder) if f.endswith(".blend")])
+			# Sorted by version number
+			versions = [path for _, path in list_versions(build_folder)]
 			if not versions:
-				self.report({"ERROR"}, f"Builds for '{props.fetch_asset}' don't exist yet!")
+				self.report({"ERROR"}, f"Builds for '{asset}' don't exist yet!")
 				return {"CANCELLED"}
 
 			# Assume top collection is the root we need to import
 			latest_path = versions[-1]
+			has_collections = True
 			with bpy.data.libraries.load(latest_path, link=False) as (source_data, target_data):
-				target_data.collections = [source_data.collections[0]]
+				if source_data.collections:
+					target_data.collections = [source_data.collections[0]]
+				else:
+					has_collections = False
+
+			if not has_collections:
+				self.report({"ERROR"}, "Build contains no collections!")
+				return {"CANCELLED"}
 
 			# Add to our Scene Collection
 			for col in target_data.collections:
@@ -403,7 +513,10 @@ class Dev_Build_Operator(bpy.types.Operator):
 		if not props.fetch_asset:
 			self.report({"ERROR_INVALID_INPUT"}, "Please type in an asset!")
 			return {"CANCELLED"}
-		builder = AssetBuilder(props.fetch_asset)
+		if not get_database():
+			self.report({"ERROR"}, DATABASE_ERROR)
+			return {"CANCELLED"}
+		builder = AssetBuilder(resolve_asset(props.fetch_asset))
 		settings = get_transfer_settings(props)
 		layer = layer_lookup[props.dev_build_layer]
 		try:
@@ -435,9 +548,9 @@ class Build_Panel(bpy.types.Panel):
 
 	@classmethod
 	def poll(cls, context):
-		return context.preferences.addons[__name__].preferences.dev_mode
+		return get_prefs(context).dev_mode
 
-def get_selected_blocks(context: bpy.types.Context) -> "set[Any]":
+def get_selected_blocks(context: bpy.types.Context) -> set[Any]:
 	"""Gets selected asset data blocks in the outliner"""
 	blocks = set()
 	# Include data blocks selected in scene
@@ -463,10 +576,8 @@ class Clear_Data_Operator(bpy.types.Operator):
 
 	def execute(self, context):
 		for block in get_selected_blocks(context):
-			del block["sg_asset"]
-			del block["sg_layer"]
-			del block["sg_version"]
-			del block["sg_id"]
+			for key in SG_KEYS:
+				block.pop(key, None)
 		return {"FINISHED"}
 
 class Inspect_Panel(bpy.types.Panel):
@@ -503,11 +614,14 @@ class Inspect_Panel(bpy.types.Panel):
 @persistent
 def load_handler(dummy):
 	# Auto-update if required
-	prefs = bpy.context.preferences
-	if not prefs.addons[__name__].preferences.auto_update:
+	prefs = get_prefs()
+	if prefs is None or not prefs.auto_update:
 		return
 
-	props = bpy.context.scene.sg_props
+	scene = bpy.context.scene
+	if scene is None or not hasattr(scene, "sg_props"):
+		return
+	props = scene.sg_props
 	settings = get_transfer_settings(props)
 	updates = get_updates()
 	for asset in updates:
@@ -539,14 +653,20 @@ def register() -> None:
 	scn = bpy.types.Scene
 	scn.sg_props = bpy.props.PointerProperty(type=Properties)
 	bpy.app.handlers.load_post.append(load_handler)
+	# Preferences aren't ready during register, so run this once shortly after
+	bpy.app.timers.register(setup_asset_library, first_interval=0.1)
 
 def unregister() -> None:
 	scn = bpy.types.Scene
 	del scn.sg_props
-	
+
+	if bpy.app.timers.is_registered(setup_asset_library):
+		bpy.app.timers.unregister(setup_asset_library)
+	if load_handler in bpy.app.handlers.load_post:
+		bpy.app.handlers.load_post.remove(load_handler)
+
 	for cls in classes:
 		bpy.utils.unregister_class(cls)
-	bpy.app.handlers.load_post.remove(load_handler)
 
 if __name__ == "__main__":
 	register()
