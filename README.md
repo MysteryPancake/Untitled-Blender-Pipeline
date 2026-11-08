@@ -85,7 +85,7 @@ The backend is written in JavaScript using Express.
 
 It doesn't use a database for now, just basic file storage in `assets.json` and `tasks.json`.
 
-<img src="images/web_backend_uml.png" width="600">
+<img src="images/web_backend_full.svg">
 
 ### Website Frontend
 
