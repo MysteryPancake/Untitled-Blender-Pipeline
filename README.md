@@ -1,6 +1,6 @@
 # Untitled Blender Pipeline
 
-[![Pipeline demo](https://img.youtube.com/vi/tNqqY4XsTL0/maxresdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
+[![Pipeline demo](https://img.youtube.com/vi/tNqqY4XsTL0/hqdefault.jpg)](https://youtu.be/tNqqY4XsTL0)
 
 | [Demo Video](https://youtu.be/tNqqY4XsTL0) |
 | --- |
@@ -13,7 +13,7 @@ Eventually I realised I was reinventing the wheel after looking at Kitsu's codeb
 
 ## Features
 
-<img src="./images/features.png">
+<img src="./images/features.png" width="500">
 
 ### Publishing
 
@@ -23,7 +23,7 @@ Custom data is used to create an imaginary link, associating data blocks to an a
 
 Conceptually this means any data can be published, even if it can't be represented as an object (such as text, brushes, palettes, etc)
 
-<img src="./images/assets.png">
+<img src="./images/assets.png" width="500">
 
 Any data blocks which are already tagged won't get retagged. This is because a single Blender can contain multiple assets (for example when scene building), and publishing should only affect the relevant asset name.
 
@@ -33,9 +33,9 @@ If a data block is already tagged and belongs to the publish name and layer, its
 
 When updating, it searches through all data blocks and checks the version in their custom data. Any outdated data blocks will be rebuilt according to their layer.
 
-<img src="./images/updating.png">
+<img src="./images/updating.png" width="500">
 
-<img src="./images/updated.png">
+<img src="./images/updated.png" width="500">
 
 ### Fetching
 
@@ -47,11 +47,11 @@ For the public release it checks whether build exist, and otherwise manually bui
 
 Building is a developer feature intended to manually build specific layers with specific versions. It turned out to be the most useful feature in practice.
 
-<img src="./images/layers.png">
+<img src="./images/layers.png" width="500">
 
-<img src="./images/layers2.png">
+<img src="./images/layers2.png" width="500">
 
-<img src="./images/built.png">
+<img src="./images/built.png" width="500">
 
 ## Components
 
@@ -59,11 +59,11 @@ Building is a developer feature intended to manually build specific layers with 
 
 The website is designed to imitate Shotgrid, with basic abilities to create and view tasks and assets.
 
-<img src="./images/dashboard.png">
+<img src="./images/dashboard.png" width="500">
 
 When an asset is added via the frontend, the backend creates a folder on disk within the `wip` folder.
 
-<img src="./images/wipfolder.png">
+<img src="./images/wipfolder.png" width="500">
 
 The folders are used by the Blender addon as described below.
 
@@ -83,7 +83,7 @@ The backend is written in JavaScript using Express.
 
 It doesn't use a database for now, just basic file storage in `assets.json` and `tasks.json`.
 
-<img src="images/web_backend_uml.png">
+<img src="images/web_backend_uml.png" width="500">
 
 ### Website Frontend
 
