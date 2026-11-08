@@ -126,7 +126,7 @@ The Blender addon is written in Python.
 
 ### Blender Addon
 
-1. Zip the contents of the `blender` folder
+1. Zip the `blender` folder
 2. Open Blender preferences
 3. Install the zipped folder as an addon
-4. Press `N` to open the menu
+4. Press `N` to open the menu. The panels should be listed in the 3D Viewport sidebar.
