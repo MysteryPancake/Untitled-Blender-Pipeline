@@ -43,7 +43,7 @@ When updating, it searches through all data blocks and checks the version in the
 
 Fetching is meant to append a prebuilt asset created by `build.bat`.
 
-For the public release it checks whether build exist, and otherwise manually builds all layers for an asset.
+For the public release it checks whether builds exist, and otherwise manually builds all layers for an asset.
 
 ### Building
 
