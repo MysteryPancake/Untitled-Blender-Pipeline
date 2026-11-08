@@ -1,7 +1,7 @@
 from typing import Any, Optional, Union
 import bpy
 
-from .utils import *
+from .utils import SourceFile, load_scene, unload_scene
 
 class TransferSettings:
 	"""Settings used when applying build layers"""
@@ -134,9 +134,10 @@ class TransferMap:
 	@staticmethod
 	def __wipe_collection(base: bpy.types.Collection) -> None:
 		"""Clears objects and subcollections from a collection"""
-		for obj in base.objects:
+		# Copy to lists, unlinking while iterating might skip items
+		for obj in list(base.objects):
 			base.objects.unlink(obj)
-		for col in base.children:
+		for col in list(base.children):
 			base.children.unlink(col)
 
 	def rebuild_collection_parents(self, obj: bpy.types.Object) -> bpy.types.Collection:
@@ -180,6 +181,17 @@ class TransferMap:
 	def __init__(self, file: SourceFile, find_parents: bool=True):
 		self.file = file
 		self.scene = load_scene(file.path)
+		try:
+			self.__setup(find_parents)
+		except Exception:
+			self.close()
+			raise
+
+	def __setup(self, find_parents: bool) -> None:
+		self.parents: dict[
+			Union[bpy.types.Object, bpy.types.Collection],
+			Union[bpy.types.Object, bpy.types.Collection]
+		] = {}
 
 		# For rare case in modelling layer
 		self.matching_objs_target: dict[bpy.types.Object, bpy.types.Object] = {}
@@ -196,10 +208,6 @@ class TransferMap:
 		self.__find_matches()
 
 		if find_parents:
-			self.parents: dict[
-				Union[bpy.types.Object, bpy.types.Collection],
-				Union[bpy.types.Object, bpy.types.Collection]
-			] = {}
 			self.__find_parents(self.scene.collection)
 		
 	def close(self):
