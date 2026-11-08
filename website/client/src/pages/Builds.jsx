@@ -6,12 +6,10 @@ import Spinner from 'react-bootstrap/Spinner';
 
 import { apiGet } from '../api';
 
-const pad = (n) => String(n).padStart(3, "0");
-
 function Version({ info }) {
 	if (!info) return <span className="text-muted">None</span>;
 	const when = info.modified ? new Date(info.modified).toLocaleString() : "";
-	return <span title={info.file}>v{pad(info.version)}{when && <span className="text-muted"> ({when})</span>}</span>;
+	return <span title={info.file}>v{String(info.version).padStart(3, "0")}{when && <span className="text-muted"> ({when})</span>}</span>;
 }
 
 const STATUS_COLORS = { "Built": "success", "Needs rebuild": "warning", "In progress": "primary" };
