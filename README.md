@@ -201,11 +201,11 @@ Each build layer is a class in `layers.py`. They include a folder name, label, t
 | Assembly / Layout | `assembly` | TODO |
 | Animation | `anims` | TODO |
 
-#### How a layer gets built
+#### How layers get built
 
-1. `AssetBuilder` finds the version in `wip/<asset>/<layer>/`, or the latest one when no version is given.
-2. `TransferMap` loads that file and compares it with the current file. Data blocks are matched by their `sg_id`, which sorts them into new, deleted and matching.
-3. The layer adds new data, removes deleted data and transfers edits onto matching data.
+1. `AssetBuilder` finds the version in `wip/<asset>/<layer>/`, or the latest when no version is given.
+2. `TransferMap` loads that file and compares it with the current. The data blocks are matched by their `sg_id`.
+3. Each layer adds new data, removes deleted data and transfers changes onto matching data.
 
 Data blocks are tagged with these custom properties when they're published:
 
