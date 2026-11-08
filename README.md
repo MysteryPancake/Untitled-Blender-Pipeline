@@ -1,10 +1,10 @@
+<img src="./images/shitgrid.svg" width="75" align="left">
+
 # Untitled Blender Pipeline
 
 This pipeline was an experiment to see how much I could get done in 2 weeks.
 
-I wanted it to be fully original, so I tried to avoid ideas from existing pipelines.
-
-I designed a versioning system around Blender's data blocks system. Each data block was associated with a version and layer.
+I designed a versioning system around Blender's data blocks system. Each data block is associated with a version and layer.
 
 Later I realised I was reinventing the wheel after looking at Kitsu's codebase, which uses the same idea of transferring data between objects.
 
