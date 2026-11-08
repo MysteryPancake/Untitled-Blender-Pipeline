@@ -20,7 +20,7 @@ bl_info = {
 def setup_asset_library() -> None:
 	"""Registers the build folder to display in the asset library"""
 	prefs = bpy.context.preferences
-	build_folder = os.path.join(prefs.addons[__name__].preferences.build_db, "build")
+	build_folder = os.path.join(prefs.addons[__name__].preferences.database, "build")
 	lib_name = "Asset Builds"
 
 	# Don't add the same library twice
