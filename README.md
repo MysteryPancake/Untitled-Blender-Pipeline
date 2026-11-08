@@ -4,9 +4,11 @@
 
 This pipeline was an experiment to see how much I could get done in 2 weeks.
 
-I designed a versioning system around Blender's data blocks system. Each data block is associated with a version and layer.
+I designed a versioning system around [Blender's data blocks](https://docs.blender.org/manual/en/latest/files/data_blocks.html) system. Each data block gets tagged with a version and layer, like `modelling`, `surfacing` or `lighting`. The build script merges all the layers into a single asset.
 
-Later I realised I was reinventing the wheel after looking at Kitsu's codebase, which uses the same idea of transferring data between objects.
+You can create and check the status of assets on the frontend website. The backend creates `wip` and `build` folders for Blender to use.
+
+Later I realised I reinvented the wheel after looking at [Kitsu's codebase](https://studio.blender.org/tools/addons/blender_kitsu). They used the same idea of transferring data between objects.
 
 <img src="./images/thumb.jpg" width="600">
 
