@@ -128,7 +128,7 @@ website/client/src/
 | `/debug` | Debug | Shows the backend URL the client is using for debugging. | None |
 | `*` | Not Found | 404 page. | None |
 
-On the Builds page, the status is either `built`, `needs rebuild` or `in progress` (see [Building](#building) for more info).
+On the Builds page, the status is either `built`, `needs rebuild` or `in progress` (see [Building](#building)).
 
 #### Components
 
@@ -138,10 +138,6 @@ On the Builds page, the status is either `built`, `needs rebuild` or `in progres
 | AddAsset | Form that posts to `/assets/add`. |
 | AddTask | Form that posts to `/tasks/add`. |
 | Timer | Live countdown to a date, used on the dashboard. |
-
-#### Backend Interaction
-
-`api.js` builds the backend URL from `REACT_APP_SG_SERVER` and `REACT_APP_SG_PORT` (see [Environment Variables](#environment-variables) for more info).
 
 #### Scripts
 
